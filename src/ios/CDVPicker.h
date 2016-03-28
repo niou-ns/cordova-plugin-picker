@@ -15,11 +15,10 @@
 @property (nonatomic, assign) BOOL enableBackButton;
 @property (nonatomic, assign) BOOL enableForwardButton;
 
--(void) echo:(CDVInvokedUrlCommand*)command;
 -(void) show:(CDVInvokedUrlCommand*)command;
 -(void) hide:(CDVInvokedUrlCommand*)command;
--(void) updateOptions:(CDVInvokedUrlCommand*)command;
 -(void) onPickerClose:(NSNumber*)row inComponent:(NSNumber*)component;
+-(void) onPickerDone:(NSArray*)result;
 -(void) onPickerSelectionChange:(NSNumber*)row inComponent:(NSNumber*)component;
 -(void) onGoToNext;
 -(void) onGoToPrevious;

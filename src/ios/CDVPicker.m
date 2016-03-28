@@ -18,35 +18,19 @@
     self.enableForwardButton= NO;
 }
 
-// test method that just passes the first arg back to the callback, to make sure that all the wiring is working.
--(void) echo:(CDVInvokedUrlCommand*)command
-{
-    [self.commandDelegate runInBackground:^{
-        CDVPluginResult* pluginResult = nil;
-        NSString* echo = [command.arguments objectAtIndex:0];
-        
-        if (echo != nil && [echo length] > 0) {
-            pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:echo];
-        }else {
-            pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR];
-        }
-        [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
-    }];
-}
-
 // shows the picker
 -(void) show:(CDVInvokedUrlCommand*)command {
     _callbackId = command.callbackId;
     NSArray* options = [command.arguments objectAtIndex:0];
-    NSInteger selectedIndex = 0;
+    NSArray* selectedIndexes;
     if (command.arguments.count > 1)
-        selectedIndex = [[command.arguments objectAtIndex:1] integerValue];
+        selectedIndexes = [command.arguments objectAtIndex:1];
     if (command.arguments.count > 2)
-        self.enableBackButton = [[command.arguments objectAtIndex:2] boolValue];
+        self.enableBackButton = false;
     if (command.arguments.count > 3)
-        self.enableForwardButton = [[command.arguments objectAtIndex:3] boolValue];
-    NSLog(@"showing with selected row %ld, back buttonenabled: %d", selectedIndex, self.enableBackButton);
-    [self pushOptionChanges:options withSelectedRow:selectedIndex];
+        self.enableForwardButton = false;
+
+    [self pushOptionChanges:options withSelectedRows:selectedIndexes];
     // can't run code that shows keyboard in background thread because it need a web lock on the main/web thread.
     [self.pickerController showPicker];
     [self.commandDelegate runInBackground:^{
@@ -60,30 +44,20 @@
     [self.pickerController hidePicker];
 }
 
--(void) updateOptions:(CDVInvokedUrlCommand*)command {
-    _callbackId = command.callbackId;
-    NSArray *options = [command.arguments objectAtIndex:0];
-    NSInteger selectedIndex = 0;
-    if (command.arguments.count > 1)
-        selectedIndex = [[command.arguments objectAtIndex:1] integerValue];
-    if (command.arguments.count > 2)
-        self.enableBackButton = [[command.arguments objectAtIndex:2] boolValue];
-    if (command.arguments.count > 3)
-        self.enableForwardButton = [[command.arguments objectAtIndex:3] boolValue];
-    [self pushOptionChanges:options withSelectedRow:selectedIndex];
-    [self.pickerController refreshChoices];
+-(void) onPickerClose:(NSNumber*)row inComponent:(NSNumber*)component {
     if (_callbackId != nil) {
         [self.commandDelegate runInBackground:^{
-            CDVPluginResult* pluginResult = [self buildResult:@"change" keepCallback:YES];
+            CDVPluginResult* pluginResult = [self buildResult:@"close" keepCallback:NO withRow:row inComponent:component haveResult:NULL];
             [self.commandDelegate sendPluginResult:pluginResult callbackId:_callbackId];
+            _callbackId = nil;
         }];
     }
 }
 
--(void) onPickerClose:(NSNumber*)row inComponent:(NSNumber*)component {
+-(void) onPickerDone:(NSArray*)result {
     if (_callbackId != nil) {
         [self.commandDelegate runInBackground:^{
-            CDVPluginResult* pluginResult = [self buildResult:@"close" keepCallback:NO withRow:row inComponent:component];
+            CDVPluginResult* pluginResult = [self buildResult:@"close" keepCallback:NO withRow:nil inComponent:nil haveResult:result];
             [self.commandDelegate sendPluginResult:pluginResult callbackId:_callbackId];
             _callbackId = nil;
         }];
@@ -110,33 +84,39 @@
     }
 }
 
--(void) pushOptionChanges:(NSArray*)options withSelectedRow:(NSInteger)row {
+-(void) pushOptionChanges:(NSArray*)options withSelectedRows:(NSArray*)rows {
     self.pickerController.choices = options;
-    NSLog(@"Selecting %ld",(long)row);
-    [self.pickerController selectRow:(int)row inComponent:0 animated:YES];
+    for(NSUInteger i = 0; i < rows.count; ++i) {
+        int row = [[rows objectAtIndex:i] intValue];
+        [self.pickerController selectRow:row inComponent:i animated:YES];
+    }
+
 }
 
 -(void) onPickerSelectionChange:(NSNumber*)row inComponent:(NSNumber*)component {
     if (_callbackId != nil) {
         [self.commandDelegate runInBackground:^{
-            CDVPluginResult* pluginResult = [self buildResult:@"select" keepCallback:YES withRow:row inComponent:component];
+            CDVPluginResult* pluginResult = [self buildResult:@"select" keepCallback:YES withRow:row inComponent:component haveResult:nil];
             [self.commandDelegate sendPluginResult:pluginResult callbackId:_callbackId];
         }];
     }
 }
 
 -(CDVPluginResult*)buildResult:(NSString*)event keepCallback:(BOOL)keep {
-    return [self buildResult:event keepCallback:keep withRow:nil inComponent:nil];
+    return [self buildResult:event keepCallback:keep withRow:nil inComponent:nil haveResult:nil];
 }
 
--(CDVPluginResult*)buildResult:(NSString*)event keepCallback:(BOOL)keep withRow:(NSNumber*)row inComponent:(NSNumber*)component {
-    
+-(CDVPluginResult*)buildResult:(NSString*)event keepCallback:(BOOL)keep withRow:(NSNumber*)row inComponent:(NSNumber*)component haveResult:(NSArray*)res {
+
     NSMutableDictionary *result = [[NSMutableDictionary alloc] init];
     [result setObject:event forKey:@"event"];
     if (row != nil)
         [result setObject:row forKey:@"row"];
     if (component != nil)
         [result setObject:component forKey:@"component"];
+    if (res != nil) {
+        [result setObject:res forKey:@"result"];
+    }
     CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDictionary:result];
     [pluginResult setKeepCallbackAsBool:keep];
     return pluginResult;

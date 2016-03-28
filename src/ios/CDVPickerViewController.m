@@ -22,6 +22,8 @@
 
 @end
 
+NSArray *_pickerData;
+
 @implementation CDVPickerViewController
 
 @synthesize pickerViewTextField = _pickerViewTextField;
@@ -47,26 +49,24 @@
 - (void)viewDidLoad
 {
     [super viewDidLoad];
+
     NSLog(@"Loading view");
-    
     self.pickerViewTextField = [[UITextField alloc] initWithFrame:CGRectZero];
     [self.view addSubview:self.pickerViewTextField];
-    
+
     self.pickerView = [[UIPickerView alloc] init];
     self.pickerView.showsSelectionIndicator = YES;
     self.pickerView.delegate = self;
     self.pickerView.dataSource = self;
     if (self.choices.count > selectedRow)
         [self.pickerView selectRow:selectedRow inComponent:selectedComponent animated:animateSelection];
-    
+
     self.pickerViewTextField.inputView = self.pickerView;
-    
+
     UIToolbar *toolBar = [[UIToolbar alloc] initWithFrame:CGRectMake(0,0,320,44)];
     UIBarButtonItem *closeButton = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone target:self action:@selector(cancelTouched:)];
     closeButton.style = UIBarButtonSystemItemDone;
-    self.backButton = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:105 target:self action:@selector(goToPrevious:)];
-    self.forwardButton = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:106 target:self action:@selector(goToNext:)];
-    [toolBar setItems:[NSArray arrayWithObjects: self.backButton, self.forwardButton, [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemFlexibleSpace target:nil action:nil], closeButton, nil]];
+    [toolBar setItems:[NSArray arrayWithObjects: [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemFlexibleSpace target:nil action:nil], closeButton, nil]];
     self.pickerViewTextField.inputAccessoryView = toolBar;
 }
 
@@ -90,12 +90,26 @@
 
 -(void)hidePicker {
     [self.pickerViewTextField resignFirstResponder];
-    [self.plugin onPickerClose: [NSNumber numberWithLong:selectedRow] inComponent: [NSNumber numberWithLong:selectedComponent]];
+
+    NSUInteger numComponents = self.pickerView.numberOfComponents;
+    NSMutableArray *result = [NSMutableArray array];
+
+    for(NSUInteger i = 0; i < numComponents; ++i) {
+        NSUInteger currentRow = [self.pickerView selectedRowInComponent:i];
+        NSMutableDictionary *row = [[NSMutableDictionary alloc] init];
+        [row setObject:[NSString stringWithFormat:@"%lu",(unsigned long)currentRow] forKey:@"row"];
+        [row setObject:[NSString stringWithFormat:@"%lu",(unsigned long)i] forKey:@"component"];
+        [row setObject:[[self.choices objectAtIndex:i]objectAtIndex:currentRow] forKey:@"value"];
+        [result addObject:row];
+    }
+
+//    [self.plugin onPickerClose: [NSNumber numberWithLong:selectedRow] inComponent: [NSNumber numberWithLong:selectedComponent]];
+    [self.plugin onPickerDone:result];
 }
 
 -(void)refreshChoices {
-    self.backButton.enabled = self.plugin.enableBackButton;
-    self.forwardButton.enabled = self.plugin.enableForwardButton;
+    self.backButton.enabled = false;
+    self.forwardButton.enabled = false;
     if (self.pickerView != nil)
         [self.pickerView reloadAllComponents];
 }
@@ -120,19 +134,18 @@
 #pragma mark - UIPickerViewDataSource
 - (NSInteger)numberOfComponentsInPickerView:(UIPickerView *)pickerView
 {
-    return 1;
+    return [self.choices count];
 }
 
 - (NSInteger)pickerView:(UIPickerView *)pickerView numberOfRowsInComponent:(NSInteger)component
 {
-    return [self.choices count];
+    return [[self.choices objectAtIndex:component] count];
 }
 
 #pragma mark - UIPickerViewDelegate
 - (NSString *)pickerView:(UIPickerView *)pickerView titleForRow:(NSInteger)row forComponent:(NSInteger)component
 {
-    NSDictionary *item = [self.choices objectAtIndex:row];
-    return [item objectForKey:self.titleProperty];
+    return self.choices[component][row];
 }
 
 - (void)pickerView:(UIPickerView *)pickerView didSelectRow:(NSInteger)row inComponent:(NSInteger)component
