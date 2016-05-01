@@ -22,5 +22,6 @@
 -(void) onPickerSelectionChange:(NSNumber*)row inComponent:(NSNumber*)component;
 -(void) onGoToNext;
 -(void) onGoToPrevious;
+-(void) pushOptionChanges:(NSArray*)options withSelectedRows:(NSArray*)rows;
 
 @end

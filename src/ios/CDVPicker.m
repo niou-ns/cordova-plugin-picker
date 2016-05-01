@@ -29,14 +29,15 @@
         self.enableBackButton = false;
     if (command.arguments.count > 3)
         self.enableForwardButton = false;
-
-    [self pushOptionChanges:options withSelectedRows:selectedIndexes];
-    // can't run code that shows keyboard in background thread because it need a web lock on the main/web thread.
-    [self.pickerController showPicker];
-    [self.commandDelegate runInBackground:^{
-        CDVPluginResult* pluginResult = [self buildResult:@"show" keepCallback:YES];
-        [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
-     }];
+    
+    __weak CDVPicker* weakSelf = self;
+    
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [weakSelf pushOptionChanges:options withSelectedRows:selectedIndexes];
+        [weakSelf.pickerController showPicker];
+        CDVPluginResult* pluginResult = [weakSelf buildResult:@"show" keepCallback:YES];
+        [weakSelf.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
+    });
 }
 
 -(void) hide:(CDVInvokedUrlCommand*)command {
@@ -85,12 +86,17 @@
 }
 
 -(void) pushOptionChanges:(NSArray*)options withSelectedRows:(NSArray*)rows {
-    self.pickerController.choices = options;
-    for(NSUInteger i = 0; i < rows.count; ++i) {
+    if (self.pickerController.choices && ![options isEqualToArray:self.pickerController.choices]) {
+        self.pickerController.choices = options;
+        [self.pickerController refreshChoices];
+    } else if (!self.pickerController.choices) {
+        self.pickerController.choices = options;
+    }
+    for (NSUInteger i = 0; i < rows.count; ++i) {
         int row = [[rows objectAtIndex:i] intValue];
         [self.pickerController selectRow:row inComponent:i animated:YES];
     }
-
+    
 }
 
 -(void) onPickerSelectionChange:(NSNumber*)row inComponent:(NSNumber*)component {
@@ -107,7 +113,7 @@
 }
 
 -(CDVPluginResult*)buildResult:(NSString*)event keepCallback:(BOOL)keep withRow:(NSNumber*)row inComponent:(NSNumber*)component haveResult:(NSArray*)res {
-
+    
     NSMutableDictionary *result = [[NSMutableDictionary alloc] init];
     [result setObject:event forKey:@"event"];
     if (row != nil)

@@ -32,6 +32,7 @@ NSArray *_pickerData;
 @synthesize titleProperty = _titleProperty;
 @synthesize forwardButton = _forwardButton;
 @synthesize backButton = _backButton;
+@synthesize viewFrame = _viewFrame;
 
 - (id)initWithNibName:(NSString *)nibNameOrNil bundle:(NSBundle *)nibBundleOrNil
 {
@@ -49,25 +50,38 @@ NSArray *_pickerData;
 - (void)viewDidLoad
 {
     [super viewDidLoad];
-
-    NSLog(@"Loading view");
-    self.pickerViewTextField = [[UITextField alloc] initWithFrame:CGRectZero];
-    [self.view addSubview:self.pickerViewTextField];
-
-    self.pickerView = [[UIPickerView alloc] init];
+    
+    self.viewFrame = CGRectMake(0, 0, self.plugin.webView.bounds.size.width, self.plugin.webView.bounds.size.height);
+    //NSLog(@"Loading view");
+    UIView *view = [[UIView alloc] initWithFrame:CGRectMake(0, self.plugin.webView.bounds.size.height + 260, self.plugin.webView.bounds.size.width, 260)];
+    self.modalView = [[UIView alloc] initWithFrame:self.viewFrame];
+    [self.modalView setBackgroundColor:[UIColor clearColor]];
+    
+    self.pickerView = [[UIPickerView alloc] initWithFrame:CGRectMake(0, 44, self.plugin.webView.bounds.size.width, 216)];
     self.pickerView.showsSelectionIndicator = YES;
     self.pickerView.delegate = self;
     self.pickerView.dataSource = self;
+    self.pickerView.backgroundColor = [UIColor clearColor];
+    
     if (self.choices.count > selectedRow)
         [self.pickerView selectRow:selectedRow inComponent:selectedComponent animated:animateSelection];
-
-    self.pickerViewTextField.inputView = self.pickerView;
-
-    UIToolbar *toolBar = [[UIToolbar alloc] initWithFrame:CGRectMake(0,0,320,44)];
+    
+    UIToolbar *toolBar = [[UIToolbar alloc] initWithFrame:CGRectMake(0, 0, self.plugin.webView.bounds.size.width, 44)];
+    toolBar.backgroundColor = [UIColor whiteColor];
     UIBarButtonItem *closeButton = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone target:self action:@selector(cancelTouched:)];
     closeButton.style = UIBarButtonSystemItemDone;
     [toolBar setItems:[NSArray arrayWithObjects: [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemFlexibleSpace target:nil action:nil], closeButton, nil]];
-    self.pickerViewTextField.inputAccessoryView = toolBar;
+    
+    UIBlurEffect *blurEffect = [UIBlurEffect effectWithStyle:UIBlurEffectStyleExtraLight];
+    UIVisualEffectView *blurEffectView = [[UIVisualEffectView alloc] initWithEffect:blurEffect];
+    [blurEffectView setFrame:self.pickerView.frame];
+    
+    [view addSubview:blurEffectView];
+    [view addSubview:toolBar];
+    [view addSubview:self.pickerView];
+    
+    [self.modalView addSubview:view];
+    [self.plugin.webView.superview addSubview:self.modalView];
 }
 
 - (void)didReceiveMemoryWarning
@@ -79,22 +93,30 @@ NSArray *_pickerData;
 -(void)showPicker {
     self.backButton.enabled = self.plugin.enableBackButton;
     self.forwardButton.enabled = self.plugin.enableForwardButton;
+    
+    
     if ([self.pickerViewTextField isFirstResponder]) {
-        NSLog(@"Picker is already showing");
+        //NSLog(@"Picker is already showing");
         [self refreshChoices];
     } else {
-        NSLog(@"Showing PickerView");
-        [self.pickerViewTextField becomeFirstResponder];
+        //NSLog(@"Showing PickerView");
+        [self.plugin.webView.superview bringSubviewToFront:self.modalView];
+        [UIView animateWithDuration:0.3
+                              delay:0.0
+                            options: 0
+                         animations:^{
+                             [self.modalView.subviews[0] setFrame: CGRectOffset(self.viewFrame, 0, self.viewFrame.size.height - 260)];
+                         }
+                         completion:nil];
     }
 }
 
 -(void)hidePicker {
-    [self.pickerViewTextField resignFirstResponder];
-
+    
     NSUInteger numComponents = self.pickerView.numberOfComponents;
     NSMutableArray *result = [NSMutableArray array];
-
-    for(NSUInteger i = 0; i < numComponents; ++i) {
+    
+    for (NSUInteger i = 0; i < numComponents; ++i) {
         NSUInteger currentRow = [self.pickerView selectedRowInComponent:i];
         NSMutableDictionary *row = [[NSMutableDictionary alloc] init];
         [row setObject:[NSString stringWithFormat:@"%lu",(unsigned long)currentRow] forKey:@"row"];
@@ -102,8 +124,16 @@ NSArray *_pickerData;
         [row setObject:[[self.choices objectAtIndex:i]objectAtIndex:currentRow] forKey:@"value"];
         [result addObject:row];
     }
-
-//    [self.plugin onPickerClose: [NSNumber numberWithLong:selectedRow] inComponent: [NSNumber numberWithLong:selectedComponent]];
+    
+    [UIView animateWithDuration:0.3
+                          delay:0.0
+                        options: 0
+                     animations:^{
+                         [self.modalView.subviews[0] setFrame: CGRectOffset(self.viewFrame, 0, self.viewFrame.size.height + 260)];
+                     }
+                     completion:^(BOOL finished) {
+                         [self.plugin.webView.superview sendSubviewToBack:self.modalView];
+                     }];
     [self.plugin onPickerDone:result];
 }
 
@@ -154,7 +184,7 @@ NSArray *_pickerData;
     selectedComponent = component;
     // perform some action
     if ([self.pickerViewTextField isFirstResponder]) {
-        NSLog(@"Selected row %ld",(long)row);
+        //NSLog(@"Selected row %ld",(long)row);
         [self.plugin onPickerSelectionChange:[NSNumber numberWithLong:selectedRow] inComponent: [NSNumber numberWithLong:selectedComponent]];
     }
 }
@@ -163,7 +193,7 @@ NSArray *_pickerData;
     selectedRow = row;
     selectedComponent = component;
     animateSelection = animated;
-   [self.pickerView selectRow:row inComponent:component animated:animated];
+    [self.pickerView selectRow:row inComponent:component animated:animated];
 }
 
 @end
