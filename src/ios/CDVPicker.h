@@ -14,6 +14,7 @@
 @property (strong, nonatomic) CDVPickerViewController* pickerController;
 @property (nonatomic, assign) BOOL enableBackButton;
 @property (nonatomic, assign) BOOL enableForwardButton;
+@property (readwrite, assign) BOOL hasPendingOperation;
 
 -(void) show:(CDVInvokedUrlCommand*)command;
 -(void) hide:(CDVInvokedUrlCommand*)command;

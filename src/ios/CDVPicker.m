@@ -20,6 +20,12 @@
 
 // shows the picker
 -(void) show:(CDVInvokedUrlCommand*)command {
+    
+    if (self.hasPendingOperation) {
+        return;
+    }
+    self.hasPendingOperation = YES;
+    
     _callbackId = command.callbackId;
     NSArray* options = [command.arguments objectAtIndex:0];
     NSArray* selectedIndexes;
@@ -56,6 +62,7 @@
 }
 
 -(void) onPickerDone:(NSArray*)result {
+    self.hasPendingOperation = NO;
     if (_callbackId != nil) {
         [self.commandDelegate runInBackground:^{
             CDVPluginResult* pluginResult = [self buildResult:@"close" keepCallback:NO withRow:nil inComponent:nil haveResult:result];
@@ -94,7 +101,7 @@
     }
     for (NSUInteger i = 0; i < rows.count; ++i) {
         int row = [[rows objectAtIndex:i] intValue];
-        [self.pickerController selectRow:row inComponent:i animated:YES];
+        [self.pickerController selectRow:row inComponent:i animated:NO];
     }
     
 }
